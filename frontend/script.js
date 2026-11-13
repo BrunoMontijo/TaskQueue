@@ -1,64 +1,51 @@
 // ============================================================
-// CONFIGURAÇÃO
-// true  = modo demonstração (funciona SEM backend, só para testar a tela)
-// false = usa a API FastAPI de verdade
+// CONEXÃO COM O BACKEND (FastAPI + RabbitMQ + Celery)
 // ============================================================
-const USAR_SIMULACAO = false; 
 const API_URL = "http://127.0.0.1:8000";
 
-// Nomes bonitos para os status do Celery
-const NOMES_STATUS = {
-  PENDING: "Pendente",
-  STARTED: "Processando",
-  SUCCESS: "Concluída",
-  FAILURE: "Falhou",
-};
-const NOMES_TIPO = {
-  pedido: "Pedido",
-  relatorio: "Relatório",
-  notificacao: "Notificação",
-  lembrete: "Lembrete",
-};
+const NOMES_STATUS = { PENDING: "Pendente", STARTED: "Processando", SUCCESS: "Concluída", FAILURE: "Falhou" };
+const NOMES_TIPO = { pedido: "Pedido", relatorio: "Relatório", notificacao: "Notificação", lembrete: "Lembrete" };
 const ICONES = { pedido: "🛒", relatorio: "📊", notificacao: "🔔", lembrete: "⏰" };
 
 let tarefas = [];
 
+// NOVIDADE: Memória blindada! Guarda o estado das tarefas no navegador.
+// Assim, mesmo que alguém aperte F5 (recarregue), a notificação não falha!
+let memoriaStatus = JSON.parse(localStorage.getItem("memoriaStatus")) || {};
+
 // ------------------------------------------------------------
-// PASSO 1: enviar tarefa
+// PASSO 1: Enviar tarefa
 // ------------------------------------------------------------
-async function adicionarTarefa() {
+async function adicionarTarefa(event) {
+  // ISTO É A CURA DO "PISCAR": Impede o navegador de recarregar a página!
+  if (event) event.preventDefault(); 
+  
   const input = document.getElementById("taskName");
   const name = input.value.trim();
   const type = document.getElementById("taskType").value;
   const campoQuando = document.getElementById("taskWhen");
   const when = type === "lembrete" && campoQuando.value ? new Date(campoQuando.value).toISOString() : null;
 
-  if (!name) {
-    alert("Digite o nome da tarefa.");
-    return;
-  }
-  if (type === "lembrete" && !when) {
-    alert("Escolha quando o lembrete deve avisar.");
-    return;
-  }
+  if (!name) { alert("Digite o nome da tarefa."); return; }
+  if (type === "lembrete" && !when) { alert("Escolha quando o lembrete deve avisar."); return; }
 
   const btnAdd = document.getElementById("btnAdd");
-  btnAdd.textContent = "A aguardar...";
+  btnAdd.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> A aguardar...';
   btnAdd.disabled = true;
 
   try {
-    if (USAR_SIMULACAO) {
-      await simularEnvio(name, type, when);
-    } else {
-      await enviarParaApi(name, type, when);
-    }
+    const novoId = await enviarParaApi(name, type, when);
+    
+    // Salva na memória imediatamente como PENDENTE
+    memoriaStatus[novoId] = "PENDING";
+    localStorage.setItem("memoriaStatus", JSON.stringify(memoriaStatus));
     
     input.value = "";
     campoQuando.value = "";
     await atualizarStatus(); 
   } catch (erro) {
-    alert("Não consegui falar com a API. Ela está a correr? (uvicorn main:app --reload)");
     console.error(erro);
+    alert("Erro ao conectar com a API. O FastAPI está a correr?");
   } finally {
     btnAdd.textContent = "▶ Adicionar à fila";
     btnAdd.disabled = false;
@@ -69,53 +56,48 @@ async function enviarParaApi(name, type, when) {
   const resposta = await fetch(`${API_URL}/enviar`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ 
-      descricao: name, 
-      tipo: NOMES_TIPO[type],
-      quando: when // Agora envia o horário do lembrete!
-    }),
+    body: JSON.stringify({ descricao: name, tipo: NOMES_TIPO[type], quando: when }),
   });
   const dados = await resposta.json();
   return dados.id;
 }
 
 // ------------------------------------------------------------
-// PASSO 2: perguntar o status de tempos em tempos
+// PASSO 2: Consultar o status repetidamente
 // ------------------------------------------------------------
 async function atualizarStatus() {
   try {
-    if (USAR_SIMULACAO) {
-      for (const t of tarefas) {
-        if (t.status === "SUCCESS" || t.status === "FAILURE") continue;
-        const novo = simularStatus(t.id);
-        if (novo === "SUCCESS" && t.status !== "SUCCESS" && t.type === "lembrete") {
-          mostrarAviso("⏰ Lembrete: " + t.name);
-        }
-        t.status = novo;
-      }
-    } else {
-      const resposta = await fetch(`${API_URL}/tarefas`);
-      const dados_banco = await resposta.json();
+    const resposta = await fetch(`${API_URL}/tarefas`);
+    const dados_banco = await resposta.json();
+    
+    dados_banco.forEach(novaTarefa => {
+      const statusAntigo = memoriaStatus[novaTarefa.id];
       
-      tarefas = dados_banco.map(t => {
-        const tipoChave = Object.keys(NOMES_TIPO).find(k => NOMES_TIPO[k] === t.tipo) || "relatorio";
-        return {
-          id: t.id,
-          name: t.descricao,
-          type: tipoChave,
-          status: t.status,
-          when: t.data_hora 
-        };
-      });
-    }
+      // A MÁGICA DA NOTIFICAÇÃO: Se virou SUCCESS e antes não era, dispara o aviso!
+      if (novaTarefa.status === "SUCCESS" && statusAntigo && statusAntigo !== "SUCCESS") {
+        mostrarAviso(novaTarefa.descricao);
+      }
+      
+      // Atualiza a memória de longo prazo
+      memoriaStatus[novaTarefa.id] = novaTarefa.status;
+    });
+    
+    // Guarda a memória no navegador
+    localStorage.setItem("memoriaStatus", JSON.stringify(memoriaStatus));
+
+    tarefas = dados_banco.map(t => {
+      const tipoChave = Object.keys(NOMES_TIPO).find(k => NOMES_TIPO[k] === t.tipo) || "relatorio";
+      return { id: t.id, name: t.descricao, type: tipoChave, status: t.status, when: t.data_hora };
+    });
+    
     desenhar();
   } catch (erro) {
-    console.error("Erro ao atualizar fila", erro);
+    console.error("Erro ao atualizar fila. O servidor caiu?", erro);
   }
 }
 
 // ------------------------------------------------------------
-// PASSO 3: desenhar a tela
+// PASSO 3: Atualizar o HTML
 // ------------------------------------------------------------
 function desenhar() {
   const lista = document.getElementById("taskList");
@@ -123,7 +105,7 @@ function desenhar() {
 
   for (const t of tarefas) {
     const li = document.createElement("li");
-    const horario = USAR_SIMULACAO && t.when ? formatarQuando(t.when) : (t.when || "");
+    const horario = t.when || "";
     
     li.innerHTML = `
       <div class="icone">${ICONES[t.type] || "🔹"}</div>
@@ -137,79 +119,41 @@ function desenhar() {
   document.getElementById("contPendentes").textContent = conta("PENDING");
   document.getElementById("contProcessando").textContent = conta("STARTED");
   document.getElementById("contConcluidas").textContent = conta("SUCCESS");
-  document.getElementById("vazio").style.display = tarefas.length ? "none" : "block";
-}
-
-// ------------------------------------------------------------
-// SIMULAÇÃO (mantida do código original)
-// ------------------------------------------------------------
-const DURACAO = { pedido: 3000, relatorio: 8000, notificacao: 2000, lembrete: 2000 };
-const simulacao = {}; 
-let filaSimulada = [];
-let workerOcupado = false;
-
-async function simularEnvio(name, type, when) {
-  const id = "demo-" + Math.random().toString(36).slice(2, 8);
-  simulacao[id] = { type, status: "PENDING" };
-  const atraso = when ? Math.max(0, new Date(when) - Date.now()) : 0;
   
-  tarefas.unshift({ id, name, type, status: "PENDING", when });
-  
-  setTimeout(() => {
-    filaSimulada.push(id);
-    rodarWorkerSimulado();
-  }, atraso);
-  return id;
+  const vazio = document.getElementById("vazio");
+  if (vazio) vazio.style.display = tarefas.length ? "none" : "block";
 }
 
-function simularStatus(id) {
-  return simulacao[id].status;
-}
-
-function rodarWorkerSimulado() {
-  if (workerOcupado || filaSimulada.length === 0) return;
-  workerOcupado = true;
-  const id = filaSimulada.shift();
-  simulacao[id].status = "STARTED";
-  setTimeout(() => {
-    simulacao[id].status = "SUCCESS";
-    workerOcupado = false;
-    rodarWorkerSimulado(); 
-  }, DURACAO[simulacao[id].type]);
+function mostrarAviso(texto) {
+  const aviso = document.getElementById("aviso");
+  aviso.innerHTML = `
+    <div style="font-size: 28px; margin-right: 14px;">🔔</div>
+    <div>
+      <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Tarefa Concluída</div>
+      <div style="font-size: 15px; font-weight: bold;">${texto}</div>
+    </div>
+  `;
+  aviso.classList.add("mostrar");
+  setTimeout(() => { aviso.classList.remove("mostrar"); }, 8000);
 }
 
 // ------------------------------------------------------------
 // INÍCIO
 // ------------------------------------------------------------
-function formatarQuando(iso) {
-  return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-}
-
-function mostrarAviso(texto) {
-  const aviso = document.getElementById("aviso");
-  aviso.textContent = texto;
-  aviso.style.display = "block";
-  setTimeout(() => (aviso.style.display = "none"), 6000);
-}
-
 document.getElementById("taskType").addEventListener("change", (e) => {
   document.getElementById("campoQuando").hidden = e.target.value !== "lembrete";
 });
 
-document.getElementById("btnAdd").addEventListener("click", adicionarTarefa);
+// Vincula os cliques passando o evento (e) para bloquear o "piscar"
+document.getElementById("btnAdd").addEventListener("click", (e) => adicionarTarefa(e));
 document.getElementById("btnAtualizar").addEventListener("click", atualizarStatus);
 document.getElementById("taskName").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") adicionarTarefa();
+  if (e.key === "Enter") adicionarTarefa(e);
 });
 
-const modoPill = document.querySelector(".pill");
-if (USAR_SIMULACAO) {
-  document.getElementById("modo").textContent = "Modo demonstração (sem backend)";
-  modoPill.innerHTML = `<i></i> Sistema de demonstração`;
-} else {
-  document.getElementById("modo").textContent = "Conectado ao Celery/RabbitMQ";
-  modoPill.innerHTML = `<i style="background: #3b82f6;"></i> Servidor Ativo`;
-}
+// Muda a indicação visual de conexão no topo
+document.querySelector(".pill").innerHTML = `<i style="background: #3b82f6;"></i> Sistema Ativo (Nuvem)`;
 
+// Arranca o ciclo de perguntas à API
 atualizarStatus();
 setInterval(atualizarStatus, 2000);
