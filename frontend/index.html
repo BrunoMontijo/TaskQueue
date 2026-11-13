@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>TaskQueue</title>
+</head>
+<body>
+    <h1>TaskQueue</h1>
+    <input type="text" id="tarefa" placeholder="Nome da tarefa">
+    <button onclick="enviar()">Enviar para a Fila</button>
+    <p id="status"></p>
+
+    <script>
+        async function enviar() {
+            const nome = document.getElementById('tarefa').value;
+            const status = document.getElementById('status');
+            status.innerText = "Enviando...";
+            try {
+                const r = await fetch('http://127.0.0.1:8000/enviar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome })
+                });
+                const data = await r.json();
+                status.innerText = `${data.status} (id: ${data.id})`;
+            } catch (e) {
+                status.innerText = "Erro ao conectar com o backend.";
+            }
+        }
+    </script>
+</body>
+</html>
