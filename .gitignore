@@ -1,0 +1,10 @@
+# Ambientes Virtuais e Cache
+venv/
+__pycache__/
+*.pyc
+
+# Variáveis de Ambiente (Segurança)
+.env
+
+# Banco de Dados
+*.sqlite
