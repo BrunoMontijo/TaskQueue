@@ -1,32 +1,61 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>TaskQueue</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TaskQueue</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>TaskQueue</h1>
-    <input type="text" id="tarefa" placeholder="Nome da tarefa">
-    <button onclick="enviar()">Enviar para a Fila</button>
-    <p id="status"></p>
+  <nav>
+    <span class="logo">▤ TaskQueue</span>
+    <span class="pill"><i></i> Sistema de demonstração</span>
+  </nav>
 
-    <script>
-        async function enviar() {
-            const nome = document.getElementById('tarefa').value;
-            const status = document.getElementById('status');
-            status.innerText = "Enviando...";
-            try {
-                const r = await fetch('http://127.0.0.1:8000/enviar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome })
-                });
-                const data = await r.json();
-                status.innerText = `${data.status} (id: ${data.id})`;
-            } catch (e) {
-                status.innerText = "Erro ao conectar com o backend.";
-            }
-        }
-    </script>
+  <main>
+    <h1>Painel de tarefas</h1>
+    <p class="sub">Cadastre tarefas e acompanhe o processamento da fila.</p>
+
+    <section class="contadores">
+      <div class="stat pendente"><b>⏳</b><div>Pendentes<span id="contPendentes">0</span></div></div>
+      <div class="stat processando"><b>⚙️</b><div>Processando<span id="contProcessando">0</span></div></div>
+      <div class="stat concluida"><b>✅</b><div>Concluídas<span id="contConcluidas">0</span></div></div>
+    </section>
+
+    <div class="colunas">
+      <section class="card form">
+        <h2>➕ Nova tarefa</h2>
+        <label for="taskName">Descrição da tarefa:</label>
+        <input type="text" id="taskName" placeholder="Ex.: Gerar relatório mensal">
+        <label for="taskType">Tipo de tarefa:</label>
+        <select id="taskType">
+          <option value="pedido">Processar pedido</option>
+          <option value="relatorio">Gerar relatório</option>
+          <option value="notificacao">Enviar notificação</option>
+          <option value="lembrete">Lembrete (evento ou rotina)</option>
+        </select>
+        <div id="campoQuando" hidden>
+          <label for="taskWhen">Quando avisar:</label>
+          <input type="datetime-local" id="taskWhen">
+        </div>
+        <button id="btnAdd">▶ Adicionar à fila</button>
+        <small id="modo"></small>
+      </section>
+
+      <section class="card fila">
+        <div class="topo">
+          <h2>☰ Fila de processamento</h2>
+          <button id="btnAtualizar" class="leve">⟳ Atualizar</button>
+        </div>
+        <ul id="taskList"></ul>
+        <p id="vazio">Nenhuma tarefa ainda.</p>
+      </section>
+    </div>
+
+    <footer>Demonstração local • HTML, CSS e JavaScript</footer>
+  </main>
+
+  <div id="aviso"></div>
+  <script src="script.js"></script>
 </body>
 </html>

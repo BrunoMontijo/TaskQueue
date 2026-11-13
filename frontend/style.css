@@ -1,0 +1,74 @@
+* { box-sizing: border-box; }
+body { font-family: Arial, sans-serif; background: #eef2f7; color: #1e293b; margin: 0; }
+
+/* barra azul do topo */
+nav { background: #0f2a4a; color: white; padding: 14px 24px;
+      display: flex; justify-content: space-between; align-items: center; }
+.logo { font-size: 22px; font-weight: bold; }
+.pill { background: #1e3a5f; padding: 6px 14px; border-radius: 20px; font-size: 13px; }
+.pill i { display: inline-block; width: 8px; height: 8px; background: #22c55e;
+          border-radius: 50%; margin-right: 6px; }
+
+main { max-width: 980px; margin: 0 auto; padding: 20px 16px; }
+h1 { margin: 0; color: #0f2a4a; }
+.sub { margin: 4px 0 20px; color: #64748b; }
+
+/* contadores */
+.contadores { display: flex; gap: 14px; margin-bottom: 18px; }
+.stat { flex: 1; display: flex; align-items: center; gap: 14px; background: white;
+        padding: 16px; border-radius: 10px; border-left: 5px solid;
+        box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.stat b { font-size: 26px; }
+.stat div { font-size: 15px; font-weight: bold; }
+.stat span { display: block; font-size: 30px; }
+.pendente { border-color: #f59e0b; }
+.processando { border-color: #2563eb; }
+.concluida { border-color: #16a34a; }
+
+/* duas colunas */
+.colunas { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: start; }
+.card { background: white; border-radius: 10px; padding: 18px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.card h2 { margin: 0 0 12px; font-size: 18px; }
+
+.form label { display: block; margin-top: 12px; font-size: 13px; font-weight: bold; }
+.form input, .form select, .form button {
+  width: 100%; padding: 10px; margin-top: 6px; font-size: 14px;
+  border: 1px solid #cbd5e1; border-radius: 6px; }
+.form button { background: #2563eb; color: white; border: none;
+               font-weight: bold; cursor: pointer; margin-top: 16px; }
+.form button:hover { background: #1d4ed8; }
+.form small { display: block; margin-top: 10px; color: #64748b; font-size: 12px; }
+
+/* lista */
+.topo { display: flex; justify-content: space-between; align-items: center; }
+.leve { background: white; border: 1px solid #cbd5e1; border-radius: 6px;
+        padding: 6px 12px; cursor: pointer; font-size: 13px; }
+ul { list-style: none; padding: 0; margin: 8px 0 0; }
+li { display: flex; align-items: center; gap: 12px; padding: 12px 0;
+     border-bottom: 1px solid #e2e8f0; }
+li:last-child { border-bottom: none; }
+.icone { width: 38px; height: 38px; border-radius: 50%; background: #eef2f7;
+         display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.info { flex: 1; }
+.info strong { display: block; }
+.info small { color: #64748b; }
+#vazio { color: #94a3b8; text-align: center; padding: 20px 0; }
+
+.badge { padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; min-width: 96px; text-align: center; }
+.badge.PENDING { background: #fef3c7; color: #92400e; }
+.badge.STARTED { background: #dbeafe; color: #1e40af; }
+.badge.SUCCESS { background: #dcfce7; color: #166534; }
+.badge.FAILURE { background: #fee2e2; color: #991b1b; }
+
+footer { text-align: center; color: #94a3b8; font-size: 13px; margin-top: 24px; }
+
+@media (max-width: 760px) {
+  .colunas { grid-template-columns: 1fr; }
+  .contadores { flex-direction: column; }
+}
+
+/* aviso do lembrete */
+#aviso { position: fixed; top: 70px; right: 16px; display: none; background: #0f2a4a;
+         color: white; padding: 14px 20px; border-radius: 8px; font-weight: bold;
+         box-shadow: 0 4px 12px rgba(0,0,0,.25); }
