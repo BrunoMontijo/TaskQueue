@@ -9,15 +9,11 @@ const ICONES = { pedido: "🛒", relatorio: "📊", notificacao: "🔔", lembret
 
 let tarefas = [];
 
-// NOVIDADE: Memória blindada! Guarda o estado das tarefas no navegador.
-// Assim, mesmo que alguém aperte F5 (recarregue), a notificação não falha!
+
 let memoriaStatus = JSON.parse(localStorage.getItem("memoriaStatus")) || {};
 
-// ------------------------------------------------------------
-// PASSO 1: Enviar tarefa
-// ------------------------------------------------------------
+
 async function adicionarTarefa(event) {
-  // ISTO É A CURA DO "PISCAR": Impede o navegador de recarregar a página!
   if (event) event.preventDefault(); 
   
   const input = document.getElementById("taskName");
@@ -36,7 +32,6 @@ async function adicionarTarefa(event) {
   try {
     const novoId = await enviarParaApi(name, type, when);
     
-    // Salva na memória imediatamente como PENDENTE
     memoriaStatus[novoId] = "PENDING";
     localStorage.setItem("memoriaStatus", JSON.stringify(memoriaStatus));
     
@@ -62,9 +57,7 @@ async function enviarParaApi(name, type, when) {
   return dados.id;
 }
 
-// ------------------------------------------------------------
-// PASSO 2: Consultar o status repetidamente
-// ------------------------------------------------------------
+
 async function atualizarStatus() {
   try {
     const resposta = await fetch(`${API_URL}/tarefas`);
@@ -73,16 +66,13 @@ async function atualizarStatus() {
     dados_banco.forEach(novaTarefa => {
       const statusAntigo = memoriaStatus[novaTarefa.id];
       
-      // A MÁGICA DA NOTIFICAÇÃO: Se virou SUCCESS e antes não era, dispara o aviso!
       if (novaTarefa.status === "SUCCESS" && statusAntigo && statusAntigo !== "SUCCESS") {
         mostrarAviso(novaTarefa.descricao);
       }
       
-      // Atualiza a memória de longo prazo
       memoriaStatus[novaTarefa.id] = novaTarefa.status;
     });
     
-    // Guarda a memória no navegador
     localStorage.setItem("memoriaStatus", JSON.stringify(memoriaStatus));
 
     tarefas = dados_banco.map(t => {
@@ -96,9 +86,7 @@ async function atualizarStatus() {
   }
 }
 
-// ------------------------------------------------------------
-// PASSO 3: Atualizar o HTML
-// ------------------------------------------------------------
+
 function desenhar() {
   const lista = document.getElementById("taskList");
   lista.innerHTML = "";
@@ -137,23 +125,18 @@ function mostrarAviso(texto) {
   setTimeout(() => { aviso.classList.remove("mostrar"); }, 8000);
 }
 
-// ------------------------------------------------------------
-// INÍCIO
-// ------------------------------------------------------------
+
 document.getElementById("taskType").addEventListener("change", (e) => {
   document.getElementById("campoQuando").hidden = e.target.value !== "lembrete";
 });
 
-// Vincula os cliques passando o evento (e) para bloquear o "piscar"
 document.getElementById("btnAdd").addEventListener("click", (e) => adicionarTarefa(e));
 document.getElementById("btnAtualizar").addEventListener("click", atualizarStatus);
 document.getElementById("taskName").addEventListener("keydown", (e) => {
   if (e.key === "Enter") adicionarTarefa(e);
 });
 
-// Muda a indicação visual de conexão no topo
 document.querySelector(".pill").innerHTML = `<i style="background: #3b82f6;"></i> Sistema Ativo (Nuvem)`;
 
-// Arranca o ciclo de perguntas à API
 atualizarStatus();
 setInterval(atualizarStatus, 2000);
